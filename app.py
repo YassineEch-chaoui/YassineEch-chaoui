@@ -1,286 +1,230 @@
+"""
+Refactored Streamlit Portfolio Application
+Modern, modular architecture with comprehensive features
+"""
+
 import streamlit as st
-import requests
-import time
-import json
-from datetime import datetime
-import base64
-import io
+import os
+from dotenv import load_dotenv
 
-# Basic configuration
-st.set_page_config(
-    page_title="Yassine Ech-chaoui - Portfolio",
-    page_icon="💻",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Import configuration and components
+from config.settings import AppSettings
+from config.constants import *
+from components.header import HeaderComponent
+from components.sidebar import SidebarComponent
+from components.sections.about import AboutSection
+from components.sections.skills import SkillsSection
+from components.sections.projects import ProjectsSection
+from components.sections.github_stats import GitHubStatsSection
+from components.sections.contact import ContactSection
+from components.base import NotificationManager
+from utils.theme_manager import ThemeManager
+from utils.cache_manager import performance_monitor
 
-# Hardcoded configuration values
-GITHUB_API_URL = "https://api.github.com"
-GITHUB_USERNAME = "YassineEch-chaoui"
-PRIMARY_COLOR = "#FF6B6B"
-SECONDARY_COLOR = "#4ECDC4"
-BACKGROUND_COLOR = "#FFFFFF"
-TEXT_COLOR = "#333333"
-
-# Basic CSS styling
-def load_css():
-    st.markdown("""
-    <style>
-    .main-header {
-        font-size: 3rem;
-        color: #FF6B6B;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .section-header {
-        font-size: 2rem;
-        color: #4ECDC4;
-        border-bottom: 2px solid #4ECDC4;
-        padding-bottom: 0.5rem;
-        margin: 2rem 0 1rem 0;
-    }
-    .tech-badge {
-        display: inline-block;
-        background-color: #FF6B6B;
-        color: white;
-        padding: 0.3rem 0.8rem;
-        margin: 0.2rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-    }
-    .project-card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-        background-color: #f8f9fa;
-    }
-    .contact-info {
-        background-color: #e9ecef;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# Function to get GitHub data
-def get_github_repos():
-    try:
-        response = requests.get(f"{GITHUB_API_URL}/users/{GITHUB_USERNAME}/repos")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error("Failed to fetch GitHub repositories")
-            return []
-    except Exception as e:
-        st.error(f"Error fetching GitHub data: {str(e)}")
-        return []
-
-# Function to get GitHub user info
-def get_github_user():
-    try:
-        response = requests.get(f"{GITHUB_API_URL}/users/{GITHUB_USERNAME}")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error("Failed to fetch GitHub user info")
-            return {}
-    except Exception as e:
-        st.error(f"Error fetching GitHub user data: {str(e)}")
-        return {}
-
-# Main application
-def main():
-    load_css()
+class PortfolioApp:
+    """Main Portfolio Application Class"""
     
-    # Header
-    st.markdown('<h1 class="main-header">💻 Yassine Ech-chaoui</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Software Developer & Tech Enthusiast</p>', unsafe_allow_html=True)
+    def __init__(self):
+        self.load_environment()
+        self.settings = AppSettings()
+        self.theme_manager = ThemeManager()
+        self.notification_manager = NotificationManager()
+        self.setup_page_config()
+        self.initialize_components()
     
-    # Sidebar navigation
-    st.sidebar.title("🧭 Navigation")
-    page = st.sidebar.selectbox("Choose a section:", [
-        "About Me", 
-        "Skills & Technologies", 
-        "Projects", 
-        "GitHub Stats", 
-        "Contact"
-    ])
+    def load_environment(self):
+        """Load environment variables"""
+        load_dotenv()
     
-    if page == "About Me":
-        show_about()
-    elif page == "Skills & Technologies":
-        show_skills()
-    elif page == "Projects":
-        show_projects()
-    elif page == "GitHub Stats":
-        show_github_stats()
-    elif page == "Contact":
-        show_contact()
-
-def show_about():
-    st.markdown('<h2 class="section-header">👨‍💻 About Me</h2>', unsafe_allow_html=True)
+    def setup_page_config(self):
+        """Configure Streamlit page settings"""
+        page_config = self.settings.get_page_config()
+        st.set_page_config(**page_config)
     
-    col1, col2 = st.columns([2, 1])
+    def initialize_components(self):
+        """Initialize all application components"""
+        self.header = HeaderComponent(self.theme_manager)
+        self.sidebar = SidebarComponent(self.theme_manager)
+        self.about_section = AboutSection(self.theme_manager)
+        self.skills_section = SkillsSection(self.theme_manager)
+        self.projects_section = ProjectsSection(self.theme_manager)
+        self.github_stats_section = GitHubStatsSection(self.theme_manager)
+        self.contact_section = ContactSection(self.theme_manager)
     
-    with col1:
-        st.write("""
-        ### Hello there! 👋
+    def apply_global_styles(self):
+        """Apply global CSS styles and theme"""
+        # Load main CSS
+        css_content = self.theme_manager.generate_adaptive_css()
+        st.markdown(css_content, unsafe_allow_html=True)
         
-        I'm Yassine, a passionate software developer who turns ideas into apps and caffeine into code ☕💡
+        # Inject theme detection script
+        theme_detector = self.theme_manager.inject_theme_detector()
+        st.markdown(theme_detector, unsafe_allow_html=True)
         
-        **What drives me:**
-        - 🔥 Powered by memes and deadlines
-        - 🧠 Collecting knowledge like it's Pokémon
-        - 💡 Turning curiosity into creation
-        - 💪 Gym rat with a GitHub account
-        - 🗡️ Coding like Thorfinn fights: with patience, purpose, and rage
-        
-        I'm constantly learning and exploring new technologies, building projects that solve real-world problems,
-        and contributing to the developer community.
-        """)
+        # Load additional component CSS
+        additional_css = self._get_component_css()
+        st.markdown(additional_css, unsafe_allow_html=True)
     
-    with col2:
-        st.image("https://media.giphy.com/media/SWoSkN6DxTszqIKEqv/giphy.gif", width=300)
-
-def show_skills():
-    st.markdown('<h2 class="section-header">🛠️ Skills & Technologies</h2>', unsafe_allow_html=True)
-    
-    skills = {
-        "Programming Languages": [
-            "Python", "JavaScript", "TypeScript", "Java", "C#", "C++", "Kotlin", "PowerShell", "Bash"
-        ],
-        "Web Technologies": [
-            "HTML5", "CSS3", "React", "Flask", "Django", "Laravel"
-        ],
-        "Databases": [
-            "MySQL", "MongoDB", "Microsoft SQL Server"
-        ],
-        "Cloud & DevOps": [
-            "Azure", "Oracle", "Docker", "Git", "Apache"
-        ],
-        "Tools & Others": [
-            "LaTeX", "Postman", "Anaconda", ".NET"
+    def _get_component_css(self) -> str:
+        """Combine CSS from all components"""
+        css_parts = [
+            self.header.get_header_css(),
+            self.sidebar.get_sidebar_css(),
+            self.about_section.get_about_css(),
+            self.skills_section.get_skills_css(),
+            self.projects_section.get_projects_css(),
+            self.github_stats_section.get_github_stats_css(),
+            self.contact_section.get_contact_css()
         ]
-    }
+        return "\n".join(css_parts)
     
-    for category, tech_list in skills.items():
-        st.markdown(f"### {category}")
-        tech_badges = "".join([f'<span class="tech-badge">{tech}</span>' for tech in tech_list])
-        st.markdown(tech_badges, unsafe_allow_html=True)
-        st.write("")
-
-def show_projects():
-    st.markdown('<h2 class="section-header">🚀 Projects</h2>', unsafe_allow_html=True)
+    def run(self):
+        """Main application execution"""
+        try:
+            # Track application start
+            performance_monitor.track_page_load()
+            self.settings.update_visit_count()
+            
+            # Apply styling
+            self.apply_global_styles()
+            
+            # Render header
+            self.header.render()
+            
+            # Show notifications
+            self.notification_manager.show_notifications()
+            
+            # Render sidebar and get selected page
+            selected_page = self.sidebar.render()
+            
+            # Render main content based on selection
+            self.render_main_content(selected_page)
+            
+            # Render footer
+            self.render_footer()
+            
+        except Exception as e:
+            self.handle_application_error(e)
     
-    # Show loading spinner
-    with st.spinner("Loading projects from GitHub..."):
-        repos = get_github_repos()
+    def render_main_content(self, selected_page: str):
+        """Render main content based on selected page"""
+        try:
+            if selected_page == "About Me":
+                self.about_section.render()
+                # Optionally render additional sections
+                if st.session_state.get('user_preferences', {}).get('show_extended_about', False):
+                    self.about_section.render_achievements()
+                    self.about_section.render_timeline()
+            
+            elif selected_page == "Skills & Technologies":
+                self.skills_section.render()
+                self.skills_section.render_learning_roadmap()
+            
+            elif selected_page == "Projects":
+                self.projects_section.render()
+            
+            elif selected_page == "GitHub Stats":
+                self.github_stats_section.render()
+            
+            elif selected_page == "Contact":
+                self.contact_section.render()
+                self.contact_section.render_faq_section()
+                
+                # Show contact stats in debug mode
+                if self.settings.is_development_mode():
+                    self.contact_section.render_contact_stats()
+            
+            else:
+                # Fallback to About Me
+                self.about_section.render()
+                
+        except Exception as e:
+            st.error("An error occurred while loading the selected section.")
+            if self.settings.is_development_mode():
+                st.exception(e)
     
-    if repos:
-        # Filter and sort repositories
-        filtered_repos = [repo for repo in repos if not repo['fork'] and repo['description']]
-        filtered_repos.sort(key=lambda x: x['updated_at'], reverse=True)
-        
-        for repo in filtered_repos[:6]:  # Show top 6 projects
-            with st.container():
-                st.markdown(f"""
-                <div class="project-card">
-                    <h3>🔗 {repo['name']}</h3>
-                    <p>{repo['description']}</p>
-                    <p><strong>Language:</strong> {repo['language'] or 'N/A'}</p>
-                    <p><strong>⭐ Stars:</strong> {repo['stargazers_count']} | <strong>🍴 Forks:</strong> {repo['forks_count']}</p>
-                    <a href="{repo['html_url']}" target="_blank">View on GitHub →</a>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.warning("No projects found or unable to load GitHub repositories.")
-
-def show_github_stats():
-    st.markdown('<h2 class="section-header">📊 GitHub Statistics</h2>', unsafe_allow_html=True)
-    
-    with st.spinner("Loading GitHub stats..."):
-        user_data = get_github_user()
-    
-    if user_data:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Public Repos", user_data.get('public_repos', 0))
-        
-        with col2:
-            st.metric("Followers", user_data.get('followers', 0))
-        
-        with col3:
-            st.metric("Following", user_data.get('following', 0))
-        
-        with col4:
-            st.metric("Public Gists", user_data.get('public_gists', 0))
-        
+    def render_footer(self):
+        """Render application footer"""
         st.markdown("---")
         
-        # Show GitHub profile link
-        if user_data.get('html_url'):
-            st.markdown(f"🔗 [View Full GitHub Profile]({user_data['html_url']})")
+        # Performance stats in development mode
+        if self.settings.is_development_mode():
+            with st.expander("🔧 Developer Information", expanded=False):
+                self.render_debug_info()
         
-        # Show contribution stats
-        st.markdown("### 📈 Contribution Stats")
-        st.image(f"https://github-readme-stats.vercel.app/api?username={GITHUB_USERNAME}&theme=bear&hide_border=false&include_all_commits=false&count_private=false")
+        # Main footer
+        visit_count = st.session_state.get('visit_count', 0)
+        current_year = 2024  # Could be made dynamic
         
-        st.markdown("### 📊 Most Used Languages")
-        st.image(f"https://github-readme-stats.vercel.app/api/top-langs/?username={GITHUB_USERNAME}&theme=bear&hide_border=false&include_all_commits=false&count_private=false&layout=compact")
-
-def show_contact():
-    st.markdown('<h2 class="section-header">📬 Get In Touch</h2>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("""
-        <div class="contact-info">
-            <h3>📧 Contact Information</h3>
-            <p>I'm always open to discussing new opportunities, collaborations, or just having a chat about technology!</p>
-            
-            <p><strong>🐙 GitHub:</strong> <a href="https://github.com/YassineEch-chaoui" target="_blank">YassineEch-chaoui</a></p>
-            <p><strong>💼 Professional Networks:</strong> Feel free to connect with me on professional platforms</p>
-            <p><strong>📩 Email:</strong> Available upon request</p>
+        footer_html = f"""
+        <div class="footer">
+            <p>© {current_year} {DEVELOPER_NAME} | Visit #{visit_count}</p>
+            <p>Built with ❤️ using Streamlit | Refactored for modern architecture</p>
+            <p>
+                <small>
+                    Theme: {st.session_state.get('theme_preference', 'auto').title()} | 
+                    Version: 2.0 | 
+                    Last Updated: January 2024
+                </small>
+            </p>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        
+        st.markdown(footer_html, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown("### 💌 Send me a message")
-        with st.form("contact_form"):
-            name = st.text_input("Your Name")
-            email = st.text_input("Your Email")
-            subject = st.text_input("Subject")
-            message = st.text_area("Message", height=100)
-            
-            submitted = st.form_submit_button("Send Message")
-            
-            if submitted:
-                if name and email and message:
-                    # Simulate sending message
-                    with st.spinner("Sending message..."):
-                        time.sleep(2)
-                    st.success("Thank you for your message! I'll get back to you soon.")
-                else:
-                    st.error("Please fill in all required fields.")
+    def render_debug_info(self):
+        """Render debug information for development"""
+        # Performance metrics
+        perf_stats = performance_monitor.get_performance_stats()
+        st.json(perf_stats)
+        
+        # Session state info
+        st.write("**Session State:**")
+        session_info = {
+            'visit_count': st.session_state.get('visit_count', 0),
+            'theme_preference': st.session_state.get('theme_preference', 'auto'),
+            'user_preferences': st.session_state.get('user_preferences', {}),
+            'form_submissions': st.session_state.get('form_submissions', 0)
+        }
+        st.json(session_info)
+        
+        # Environment info
+        st.write("**Environment:**")
+        env_info = {
+            'STREAMLIT_ENV': os.getenv('STREAMLIT_ENV', 'not set'),
+            'DEBUG_MODE': os.getenv('DEBUG_MODE', 'not set'),
+            'GITHUB_TOKEN': 'set' if os.getenv('GITHUB_TOKEN') else 'not set'
+        }
+        st.json(env_info)
+    
+    def handle_application_error(self, error: Exception):
+        """Handle application-level errors gracefully"""
+        st.error("An unexpected error occurred in the application.")
+        
+        if self.settings.is_development_mode():
+            st.exception(error)
+        else:
+            st.info("Please try refreshing the page. If the problem persists, please contact support.")
+        
+        # Log error for debugging
+        if hasattr(st.session_state, 'error_log'):
+            st.session_state.error_log.append({
+                'error': str(error),
+                'context': 'application_level',
+                'timestamp': st.session_state.get('current_time', 'unknown')
+            })
 
-# Session state management
-if 'visit_count' not in st.session_state:
-    st.session_state.visit_count = 0
-
-st.session_state.visit_count += 1
-
-# Footer
-st.markdown("---")
-st.markdown(f"""
-<div style="text-align: center; color: #666; margin-top: 2rem;">
-    <p>© 2024 Yassine Ech-chaoui | Visit #{st.session_state.visit_count}</p>
-    <p>Built with ❤️ using Streamlit</p>
-</div>
-""", unsafe_allow_html=True)
+def main():
+    """Application entry point"""
+    try:
+        # Initialize and run the portfolio application
+        app = PortfolioApp()
+        app.run()
+        
+    except Exception as e:
+        # Fallback error handling
+        st.error("Critical error: Unable to initialize the application.")
+        st.exception(e)
 
 if __name__ == "__main__":
     main()
